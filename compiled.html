@@ -35,6 +35,9 @@
             font-size: 14px;
             font-weight: bold;
         }
+        body {
+            background-color: #fffada;
+        }
         .tool {
             position: absolute;
             text-align: left;
@@ -85,6 +88,22 @@
         select option {
             color: black;
         }
+        h2 {
+            font-family: 'Arial', sans-serif; /* Change 'Arial' to your desired font */
+            color: #ff6347; /* Change the hex code to your desired color */
+        }
+        h1 {
+            font-family: 'Arial', sans-serif; /* Change 'Arial' to your desired font */
+            color: #7714d4; /* Change the hex code to your desired color */
+        }
+        h4 {
+            font-family: 'Arial', sans-serif; /* Change 'Arial' to your desired font */
+            color: #998e98; /* Change the hex code to your desired color */
+        }
+        h5 {
+            font-family: 'Arial', sans-serif; /* Change 'Arial' to your desired font */
+            color: #7714d4; /* Change the hex code to your desired color */
+        }
     </style>
 </head>
 <body>
@@ -92,6 +111,11 @@
     <div class="container">
         <h1>Analysis of the 2022 NBA Season</h2>
     </div>
+
+    <div class="container">
+        <h5>By: Mihir Joshi and Sivaram Ari</h2>
+    </div>
+
     <div>
         <h2>2022 Season Introduction</h2>
         <h4>The 20-2021 and 21-2022 NBA seasons marked a transitionary period in the NBA. The stars of late 2010s were entering their early-thirties and nearing their retirement from the NBA, opening space for 
@@ -292,10 +316,197 @@
 
     </script>
 
+    <div>
+        <h2>Top 50 NBA Players Statistics</h2>
+        <h4>The chart below shows some of the statistics that the Top 50 players in the 2021-2022 season generated over their careers in the NBA. Points, Assits, Rebounds, and True Shooting Percentage are good
+            indicators of player performance in each season. Usage percentage is how many posessions end with a player and assist percentage is how many of the teams shots were assisted by the player. These two metrics 
+            are good indicators of how much importance the player has on the team they play on. Players like Lebron James, Paul George, and Kevin Durant have seen their Games Played and Net Rating drop over the 
+            last few years. Meanwhile, Jayson Tatum and Jaylen Brown saw all of their statistics increase across the board over the last few years.
+        </h4>
+    </div>
+
+
+    <select id="playerDropdown"></select>
+    <select id="statDropdown"></select>
+    <div id="plots" class="plot"></div>
+    <div class="tool" id="tooltip5" style="opacity: 0;"></div>
+    <script>
+        // Load data from CSV
+        d3.csv("chart2.csv").then(function(data) {
+            // Parse data
+            data.forEach(d => {
+                d.age = +d.age;
+                d.gp = +d.gp;
+                d.pts = +d.pts;
+                d.reb = +d.reb;
+                d.ast = +d.ast;
+                d.net_rating = +d.net_rating;
+                d.usg_pct = +d.usg_pct;
+                d.ts_pct = +d.ts_pct;
+                d.ast_pct = +d.ast_pct;
+            });
+
+            // Extract unique player names
+            const players = Array.from(new Set(data.map(d => d.player_name)));
+
+            // Extract unique stat names
+            const stats = Array.from(new Set(Object.keys(data[0]).filter(key => ["gp", "pts", "reb", "ast", "net_rating", "usg_pct", "ts_pct", "ast_pct"].includes(key))));
+
+            // Create player dropdown menu
+            const playerDropdown = d3.select("#playerDropdown");
+            playerDropdown.selectAll("option")
+                .data(players)
+                .enter()
+                .append("option")
+                .text(d => d)
+                .attr("value", d => d);
+
+            // Create stat dropdown menu
+            const statDropdown = d3.select("#statDropdown");
+            statDropdown.selectAll("option")
+                .data(stats)
+                .enter()
+                .append("option")
+                .text(d => {
+                    const statLabels = {
+                        "gp": "Games Played",
+                        "pts": "Points",
+                        "reb": "Rebounds",
+                        "ast": "Assists",
+                        "net_rating": "Net Rating",
+                        "usg_pct": "Usage Percent",
+                        "ts_pct": "True Shooting Percent",
+                        "ast_pct":"Assist Percent"
+                    };
+                    return statLabels[d] || d;
+                })
+                .attr("value", d => d);
+
+            // Function to update plot
+            function updatePlot(player, stat) {
+
+                const statLabels = {
+                    "gp": "Games Played",
+                    "pts": "Points",
+                    "reb": "Rebounds",
+                    "ast": "Assists",
+                    "net_rating": "Net Rating",
+                    "usg_pct": "Usage Percent",
+                    "ts_pct": "True Shooting Percent",
+                    "ast_pct":"Assist Percent"
+                };
+
+                const playerData = data.filter(d => d.player_name === player);
+
+                const plotWidth = 930;
+                const plotHeight = 630;
+                const plotMargin = { top: 20, right: 30, bottom: 60, left: 60 };
+
+                d3.select("#plots").selectAll("*").remove();
+
+                const plotSvg = d3.select("#plots")
+                    .append("svg")
+                    .attr("width", plotWidth + plotMargin.left + plotMargin.right)
+                    .attr("height", plotHeight + plotMargin.top + plotMargin.bottom)
+                    .append("g")
+                    .attr("transform", `translate(${plotMargin.left},${plotMargin.top})`);
+
+                const x = d3.scaleBand()
+                    .domain(playerData.map(d => d.season))
+                    .range([0, plotWidth])
+                    .padding(0.1);
+
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(playerData, d => +d[stat])])
+                    .nice()
+                    .range([plotHeight, 0]);
+
+                const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+                plotSvg.selectAll(".bar")
+                    .data(playerData)
+                    .enter().append("rect")
+                    .attr("class", "bar")
+                    .attr("x", d => x(d.season))
+                    .attr("y", d => y(d[stat]))
+                    .attr("height", d => plotHeight - y(d[stat]))
+                    .attr("width", x.bandwidth())
+                    .attr("fill", color(0))
+                    .on("mouseover", function(event, d) {
+                        d3.select(this).attr("fill", "orange");
+                        const tooltip5 = d3.select("#tooltip5");
+                        tooltip5.transition()
+                            .duration(200)
+                            .style("opacity", .9);
+                        tooltip5.html(`${stat}: ${playerData[d][stat]}<br>Player: ${playerData[d].player_name}<br>Team: ${playerData[d].team_abbreviation}<br>Age: ${playerData[d].age}`)
+                            .style("left", -300* 1/playerData.length + ((plotWidth-13)/playerData.length) * (event.index - playerData[0].index + 1) + "px")
+                            .style("top", (1500) + "px");
+                    })
+                    .on("mouseout", function() {
+                        d3.select(this).attr("fill", color(0));
+                        d3.select("#tooltip5").transition()
+                            .duration(500)
+                            .style("opacity", 0);
+                    });
+
+                plotSvg.append("g")
+                    .attr("class", "x-axis")
+                    .attr("transform", `translate(0,${plotHeight})`)
+                    .call(d3.axisBottom(x))
+                    .selectAll("text")
+                    .attr("transform", "rotate(-65)")
+                    .style("text-anchor", "end");
+
+                plotSvg.append("g")
+                    .attr("class", "y-axis")
+                    .call(d3.axisLeft(y));
+
+                plotSvg.append("text")
+                    .attr("x", plotWidth / 2)
+                    .attr("y", -5)
+                    .attr("text-anchor", "middle")
+                    .text(playerData[0].player_name + " " + statLabels[stat])
+                    .attr("class", "axis-label");
+
+                plotSvg.append("text")
+                    .attr("class", "axis-label")
+                    .attr("text-anchor", "middle")
+                    .attr("x", plotWidth / 2)
+                    .attr("y", plotHeight + 60)
+                    .text("Seasons"); // Replace with your x-axis label
+
+                // Add the y-axis label
+                plotSvg.append("text")
+                    .attr("class", "axis-label")
+                    .attr("text-anchor", "middle")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -plotHeight / 2)
+                    .attr("y", -40)
+                    .text(statLabels[stat]); // Replace with your y-axis label
+
+            }
+
+            playerDropdown.on("change", function() {
+                const selectedPlayer = d3.select(this).property("value");
+                const selectedStat = d3.select("#statDropdown").property("value");
+                updatePlot(selectedPlayer, selectedStat);
+            });
+
+            statDropdown.on("change", function() {
+                const selectedPlayer = d3.select("#playerDropdown").property("value");
+                const selectedStat = d3.select(this).property("value");
+                updatePlot(selectedPlayer, selectedStat);
+            });
+
+            // Initialize plot with the first player and stat in the lists
+            updatePlot(players[0], stats[0]);
+        });
+    </script>
+
 
     <div>
         <h2>Top 8 2022 Playoff Teams</h2>
-        <h4>The chart below shows the 4 teams from each NBA conference that made it to the second round in 2022. DAL, GSW, PHX, and MEM from the west, and BOS, MIL, MIA, and PHI from the east. 5 of the 8 teams on this chart
+        <h4>From the top 50 players in the NBA, only a few made it to the Playoffs and beyond. The chart below shows the 4 teams from each NBA conference that made it to the second round in 2022. DAL, GSW, PHX, and MEM from the west, and BOS, MIL, MIA, and PHI from the east. 5 of the 8 teams on this chart
             have made it or won the finals in the past 3 years. The ages of the players also shows the faceoff between the older teams (GSW and PHI) and the younger teams (BOS, PHX, DAL).
         </h4>
     </div>
@@ -437,12 +648,12 @@
                             .style("opacity", .9);
                         tooltip.html(`Player: ${nodePositions3[d].id}<br>Age in 2022: ${playerData[2]}<br>Rating: ${(playerData[0]).toFixed(2)}<br>Team: ${playerData[1]}`)
                             .style("left", event.x)
-                            .style("top", event.y+1300);
+                            .style("top", event.y+2200);
                     })
                     .on("mousemove", function(event) {
                             d3.select("#tooltip1")
                                 .style("left", (event.x) + "px")
-                                .style("top", (event.y)+1300 + "px");
+                                .style("top", (event.y)+2200 + "px");
                     })
                     .on("mouseout", function() {
                         d3.select("#tooltip1").transition()
@@ -475,12 +686,12 @@
                             .style("opacity", .9);
                         tooltip.html(`Player: ${nodePositions3[d].id}<br>Age in 2022: ${playerData[2]}<br>Rating: ${(playerData[0]).toFixed(2)}<br>Team: ${playerData[1]}`)
                             .style("left", event.x)
-                            .style("top", event.y+1300);
+                            .style("top", event.y+2200);
                 })
                 .on("mousemove", function(event) {
                             d3.select("#tooltip1")
                                 .style("left", (event.x) + "px")
-                                .style("top", (event.y)+1300 + "px");
+                                .style("top", (event.y)+2200 + "px");
                 })
                 .on("mouseout", function() {
                     d3.select("#tooltip1").transition()
@@ -545,196 +756,13 @@
         });
     </script>
 
-    <div>
-        <h2>Top 50 NBA Players Statistics</h2>
-        <h4>The chart below shows some of the statistics that the Top 50 players in the 2021-2022 season generated over their careers in the NBA. Points, Assits, Rebounds, and True Shooting Percentage are good
-            indicators of player performance in each season. Usage percentage is how many posessions end with a player and assist percentage is how many of the teams shots were assisted by the player. These two metrics 
-            are good indicators of how much importance the player has on the team they play on. Players like Lebron James, Paul George, and Kevin Durant have seen their Games Played and Net Rating drop over the 
-            last few years. Meanwhile, Jayson Tatum and Jaylen Brown saw all of their statistics increase across the board over the last few years.
-        </h4>
-    </div>
-
-
-    <select id="playerDropdown"></select>
-    <select id="statDropdown"></select>
-    <div id="plots" class="plot"></div>
-    <div class="tool" id="tooltip5" style="opacity: 0;"></div>
-    <script>
-        // Load data from CSV
-        d3.csv("chart2.csv").then(function(data) {
-            // Parse data
-            data.forEach(d => {
-                d.age = +d.age;
-                d.gp = +d.gp;
-                d.pts = +d.pts;
-                d.reb = +d.reb;
-                d.ast = +d.ast;
-                d.net_rating = +d.net_rating;
-                d.usg_pct = +d.usg_pct;
-                d.ts_pct = +d.ts_pct;
-                d.ast_pct = +d.ast_pct;
-            });
-
-            // Extract unique player names
-            const players = Array.from(new Set(data.map(d => d.player_name)));
-
-            // Extract unique stat names
-            const stats = Array.from(new Set(Object.keys(data[0]).filter(key => ["gp", "pts", "reb", "ast", "net_rating", "usg_pct", "ts_pct", "ast_pct"].includes(key))));
-
-            // Create player dropdown menu
-            const playerDropdown = d3.select("#playerDropdown");
-            playerDropdown.selectAll("option")
-                .data(players)
-                .enter()
-                .append("option")
-                .text(d => d)
-                .attr("value", d => d);
-
-            // Create stat dropdown menu
-            const statDropdown = d3.select("#statDropdown");
-            statDropdown.selectAll("option")
-                .data(stats)
-                .enter()
-                .append("option")
-                .text(d => {
-                    const statLabels = {
-                        "gp": "Games Played",
-                        "pts": "Points",
-                        "reb": "Rebounds",
-                        "ast": "Assists",
-                        "net_rating": "Net Rating",
-                        "usg_pct": "Usage Percent",
-                        "ts_pct": "True Shooting Percent",
-                        "ast_pct":"Assist Percent"
-                    };
-                    return statLabels[d] || d;
-                })
-                .attr("value", d => d);
-
-            // Function to update plot
-            function updatePlot(player, stat) {
-
-                const statLabels = {
-                    "gp": "Games Played",
-                    "pts": "Points",
-                    "reb": "Rebounds",
-                    "ast": "Assists",
-                    "net_rating": "Net Rating",
-                    "usg_pct": "Usage Percent",
-                    "ts_pct": "True Shooting Percent",
-                    "ast_pct":"Assist Percent"
-                };
-
-                const playerData = data.filter(d => d.player_name === player);
-
-                const plotWidth = 930;
-                const plotHeight = 630;
-                const plotMargin = { top: 20, right: 30, bottom: 60, left: 60 };
-
-                d3.select("#plots").selectAll("*").remove();
-
-                const plotSvg = d3.select("#plots")
-                    .append("svg")
-                    .attr("width", plotWidth + plotMargin.left + plotMargin.right)
-                    .attr("height", plotHeight + plotMargin.top + plotMargin.bottom)
-                    .append("g")
-                    .attr("transform", `translate(${plotMargin.left},${plotMargin.top})`);
-
-                const x = d3.scaleBand()
-                    .domain(playerData.map(d => d.season))
-                    .range([0, plotWidth])
-                    .padding(0.1);
-
-                const y = d3.scaleLinear()
-                    .domain([0, d3.max(playerData, d => +d[stat])])
-                    .nice()
-                    .range([plotHeight, 0]);
-
-                const color = d3.scaleOrdinal(d3.schemeCategory10);
-
-                plotSvg.selectAll(".bar")
-                    .data(playerData)
-                    .enter().append("rect")
-                    .attr("class", "bar")
-                    .attr("x", d => x(d.season))
-                    .attr("y", d => y(d[stat]))
-                    .attr("height", d => plotHeight - y(d[stat]))
-                    .attr("width", x.bandwidth())
-                    .attr("fill", color(0))
-                    .on("mouseover", function(event, d) {
-                        d3.select(this).attr("fill", "orange");
-                        const tooltip5 = d3.select("#tooltip5");
-                        tooltip5.transition()
-                            .duration(200)
-                            .style("opacity", .9);
-                        tooltip5.html(`${stat}: ${playerData[d][stat]}<br>Player: ${playerData[d].player_name}<br>Team: ${playerData[d].team_abbreviation}<br>Age: ${playerData[d].age}`)
-                            .style("left", -300* 1/playerData.length + ((plotWidth-13)/playerData.length) * (event.index - playerData[0].index + 1) + "px")
-                            .style("top", (2600) + "px");
-                    })
-                    .on("mouseout", function() {
-                        d3.select(this).attr("fill", color(0));
-                        d3.select("#tooltip5").transition()
-                            .duration(500)
-                            .style("opacity", 0);
-                    });
-
-                plotSvg.append("g")
-                    .attr("class", "x-axis")
-                    .attr("transform", `translate(0,${plotHeight})`)
-                    .call(d3.axisBottom(x))
-                    .selectAll("text")
-                    .attr("transform", "rotate(-65)")
-                    .style("text-anchor", "end");
-
-                plotSvg.append("g")
-                    .attr("class", "y-axis")
-                    .call(d3.axisLeft(y));
-
-                plotSvg.append("text")
-                    .attr("x", plotWidth / 2)
-                    .attr("y", -5)
-                    .attr("text-anchor", "middle")
-                    .text(playerData[0].player_name + " " + statLabels[stat])
-                    .attr("class", "axis-label");
-
-                plotSvg.append("text")
-                    .attr("class", "axis-label")
-                    .attr("text-anchor", "middle")
-                    .attr("x", plotWidth / 2)
-                    .attr("y", plotHeight + 60)
-                    .text("Seasons"); // Replace with your x-axis label
-
-                // Add the y-axis label
-                plotSvg.append("text")
-                    .attr("class", "axis-label")
-                    .attr("text-anchor", "middle")
-                    .attr("transform", "rotate(-90)")
-                    .attr("x", -plotHeight / 2)
-                    .attr("y", -40)
-                    .text(statLabels[stat]); // Replace with your y-axis label
-
-            }
-
-            playerDropdown.on("change", function() {
-                const selectedPlayer = d3.select(this).property("value");
-                const selectedStat = d3.select("#statDropdown").property("value");
-                updatePlot(selectedPlayer, selectedStat);
-            });
-
-            statDropdown.on("change", function() {
-                const selectedPlayer = d3.select("#playerDropdown").property("value");
-                const selectedStat = d3.select(this).property("value");
-                updatePlot(selectedPlayer, selectedStat);
-            });
-
-            // Initialize plot with the first player and stat in the lists
-            updatePlot(players[0], stats[0]);
-        });
-    </script>
-
-    <div>
+    
+    <div style="margin : 0; padding-top:0;">
+        <h4>A significant reason behind the variability in the top teams in the NBA comes from many players on teams not being available to play for much of the season. This opened the door to other teams in the Playoffs.</h4>
         <h2>Significant Injuries 2022</h2>
-        <h4>This chart shows ______</h4>
+        <h4>This chart shows few notable players that were injured in the 2021-2022 NBA season. The x axis are the names of the players injured while the y-axis is the one of the selected stats of Points, Rebounds, Assists, Net Rating and Usage Percent. The purpose of this visualization is to display the decrease in production and quality before these players injuries and after. The faded points are players who were injured throughout the entire 2021-2022 NBA season. 
+            This chart shows us how the injuries of formerly great players' injuries left their teams with fewer options they could rely on.
+        </h4>
     </div>
 
     <select id="statDropdown1">
@@ -773,7 +801,7 @@
                     .padding(0.1);
 
                 const y = d3.scaleLinear()
-                    .domain([0, d3.max(data, d => +d[stat])])
+                    .domain([d3.min(data, d => +d[stat]), d3.max(data, d => +d[stat])])
                     .nice()
                     .range([plotHeight1, 0]);
 
@@ -875,7 +903,8 @@
 
     <div>
         <h2>Conclusion</h2>
-        <h4>To Conclude</h4>
+        <h4>In conclusion the stars from the late 2010s in the NBA chances of winning championship has been fading into promiscuity as injuries are taking a toll onto their carrer. More younger players 
+            have been rising through the ranks and have been playing better than those late 2010s stars. Through the lens of our visulizations we have seen that the late 2010 stars are being replaced  with the new bright young players as the face of the league.</h4>
     </div>
 
 
